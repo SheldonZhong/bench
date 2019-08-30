@@ -15,26 +15,27 @@ blocksize=4k
 ioengine=psync
 iodepth=1
 numjobs=4
-size=1g
+size=0
+io_size=1g
 direct=1
 runtime=10
-filename=/dev/sdc
+filename=/dev/sdb
 # sync=1
 group_reporting=1
 cpus_allowed_policy=split
 randrepeat=0
 
-[seq-read]
-rw=read
-stonewall
+# [seq-read]
+# rw=read
+# stonewall
 
 [rand-read]
 rw=randread
 stonewall
 
-[seq-write]
-rw=write
-stonewall
+# [seq-write]
+# rw=write
+# stonewall
 
 [rand-write]
 rw=randwrite

@@ -11,7 +11,7 @@
 
 static uint64_t inflight = 0;
 
-static inline int wait(struct io_uring *ring, uint64_t cap) {
+static inline int wait(struct io_uring *ring, uint64_t cap, uint64_t bs) {
     struct io_uring_cqe *cqe;
     int ret;
 
@@ -22,8 +22,8 @@ static inline int wait(struct io_uring *ring, uint64_t cap) {
             return 1;
         } 
 
-        if (cqe->res != 4096) {
-			fprintf(stderr, "ret=%s, wanted 4096\n", strerror(-cqe->res));
+        if (cqe->res != bs) {
+			fprintf(stderr, "ret=%s, wanted %ld\n", strerror(-cqe->res), bs);
 		}
 
         io_uring_cqe_seen(ring, cqe);
@@ -45,7 +45,7 @@ static inline int uring_write(struct io_uring *ring, int fd, void *buf, uint64_t
         fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
     }
 
-    wait(ring, CAP);
+    wait(ring, CAP, bs);
 
     return 0;
 }
@@ -64,7 +64,7 @@ static inline int uring_read(struct io_uring *ring, int fd, void *buf, uint64_t 
         fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
     }
 
-    wait(ring, CAP);
+    wait(ring, CAP, bs);
 
     return 0;
 }
@@ -110,8 +110,8 @@ void *rw_worker(struct io_uring *ring, void *args) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 6) {
-        fprintf(stderr, "%s <dev> <nthreads> <read_percent> <blocksize_shift> <duration> ... (optional) <stonewall>\n", argv[0]);
+    if (argc < 5) {
+        fprintf(stderr, "%s <dev> <read_percent> <blocksize_shift> <duration> ... (optional) <stonewall>\n", argv[0]);
         exit(1);
     }
 
@@ -121,10 +121,10 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    const int nthreads = atoi(argv[2]);
-    const int read_percent = atoi(argv[3]);
-    const int block_size = 1 << atoi(argv[4]);
-    const int duration = atoi(argv[5]);
+    const int nthreads = atoi(argv[1]);
+    const int read_percent = atoi(argv[2]);
+    const int block_size = 1 << atoi(argv[3]);
+    const int duration = atoi(argv[4]);
     const off_t size = lseek(fd, 0, SEEK_END);
     int ret;
     struct timespec now;
@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
     };
     struct iovec iovecs = {
         .iov_base = job_args.buf,
-        .iov_len = 4096,
+        .iov_len = block_size,
     };
     struct io_uring ring;
     ret = io_uring_queue_init(CAP, &ring, 0);
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     }
 
     rw_worker(&ring, &job_args);
-    wait(&ring, 0);
+    wait(&ring, 0, block_size);
 
     clock_gettime(CLOCK_MONOTONIC, &stop);
     io_uring_queue_exit(&ring);

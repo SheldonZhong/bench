@@ -1,3 +1,24 @@
+#include <stdatomic.h>
+
+struct rw_params {
+    int fd;
+    void *buf;
+
+    int read_percent;
+    __time_t duration;
+    __uint64_t block_size;
+    __uint64_t io_size;
+    __uint64_t size;
+
+    __uint64_t seed;
+
+    struct timespec *start;
+    struct timespec *stop;
+
+    atomic_uint_fast64_t read_io;
+    atomic_uint_fast64_t write_io;
+};
+
 static __thread __uint64_t __rs_u64 = 88172645463325252lu;
 
 static inline __uint64_t xorshift(__uint64_t s) {

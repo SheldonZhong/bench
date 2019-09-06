@@ -3,29 +3,9 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <stdatomic.h>
 #include "common.h"
 
 #define GRANUNITY 100
-
-struct rw_params {
-    int fd;
-    void *buf;
-
-    int read_percent;
-    __time_t duration;
-    __uint64_t block_size;
-    __uint64_t io_size;
-    __uint64_t size;
-
-    __uint64_t seed;
-
-    struct timespec *start;
-    struct timespec *stop;
-
-    atomic_uint_fast64_t read_io;
-    atomic_uint_fast64_t write_io;
-};
 
 void *rw_worker(void *args) {
     struct rw_params *param = (struct rw_params*)args;

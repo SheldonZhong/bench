@@ -6,10 +6,30 @@
 #include "liburing.h"
 #include "common.h"
 
-#define CAP 2048
+#define CAP 64
 #define GRANUNITY 100
 
 static uint64_t inflight = 0;
+
+static inline int wait(struct io_uring *ring, uint64_t cap) {
+    struct io_uring_cqe *cqe;
+    int ret;
+
+    while (inflight > cap) {
+        ret = io_uring_wait_cqe(ring, &cqe);
+        if (ret < 0) {
+            fprintf(stderr, "io_uring_wait_cqe: %s\n", strerror(-ret));
+            return 1;
+        } 
+
+        if (cqe->res != 4096) {
+			fprintf(stderr, "ret=%s, wanted 4096\n", strerror(-cqe->res));
+		}
+
+        io_uring_cqe_seen(ring, cqe);
+        inflight--;
+    }
+}
 
 static inline int uring_write(struct io_uring *ring, int fd, void *buf, uint64_t bs, uint64_t off) {
     struct io_uring_cqe *cqe;
@@ -19,22 +39,13 @@ static inline int uring_write(struct io_uring *ring, int fd, void *buf, uint64_t
     sqe = io_uring_get_sqe(ring);
     io_uring_prep_write_fixed(sqe, fd, buf, bs, off, 0);
     inflight++;
+
     ret = io_uring_submit(ring);
     if (ret < 0) {
         fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
     }
 
-    while (inflight >= CAP) {
-
-        ret = io_uring_wait_cqe(ring, &cqe);
-        if (ret < 0) {
-            fprintf(stderr, "io_uring_wait_cqe: %s\n", strerror(-ret));
-            return 1;
-        }
-        io_uring_cqe_get_data(cqe);
-        io_uring_cqe_seen(ring, cqe);
-        inflight--;
-    }
+    wait(ring, CAP);
 
     return 0;
 }
@@ -45,44 +56,17 @@ static inline int uring_read(struct io_uring *ring, int fd, void *buf, uint64_t 
     int ret;
 
     sqe = io_uring_get_sqe(ring);
-    if (!sqe) {
-        printf("sqe == 0\n");
-    }
     io_uring_prep_read_fixed(sqe, fd, buf, bs, off, 0);
     inflight++;
+
     ret = io_uring_submit(ring);
     if (ret < 0) {
         fprintf(stderr, "io_uring_submit: %s\n", strerror(-ret));
     }
 
-    while (inflight >= CAP) {
-        ret = io_uring_wait_cqe(ring, &cqe);
-        if (ret < 0) {
-            fprintf(stderr, "io_uring_wait_cqe: %s\n", strerror(-ret));
-            return 1;
-        }
-        io_uring_cqe_get_data(cqe);
-        io_uring_cqe_seen(ring, cqe);
-        inflight--;
-    }
+    wait(ring, CAP);
 
     return 0;
-}
-
-static inline int wait(struct io_uring *ring) {
-    struct io_uring_cqe *cqe;
-    int ret;
-
-    while (inflight > 0) {
-        ret = io_uring_wait_cqe(ring, &cqe);
-        if (ret < 0) {
-            fprintf(stderr, "io_uring_wait_cqe: %s\n", strerror(-ret));
-            return 1;
-        } 
-        io_uring_cqe_get_data(cqe);
-        io_uring_cqe_seen(ring, cqe);
-        inflight--;
-    }
 }
 
 void *rw_worker(struct io_uring *ring, void *args) {
@@ -158,16 +142,23 @@ int main(int argc, char *argv[]) {
         .start = &now,
         .stop = &stop,
     };
-    clock_gettime(CLOCK_MONOTONIC, &now);
+    struct iovec iovecs = {
+        .iov_base = job_args.buf,
+        .iov_len = 4096,
+    };
     struct io_uring ring;
     ret = io_uring_queue_init(CAP, &ring, 0);
+
+    io_uring_register_buffers(&ring, &iovecs, 1);
+    clock_gettime(CLOCK_MONOTONIC, &now);
+
     if (ret < 0) {
         fprintf(stderr, "io_uring_queue_init: %s\n", strerror(-ret));
         return -1;
     }
 
     rw_worker(&ring, &job_args);
-    wait(&ring);
+    wait(&ring, 0);
 
     clock_gettime(CLOCK_MONOTONIC, &stop);
     io_uring_queue_exit(&ring);

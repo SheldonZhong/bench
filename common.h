@@ -1,4 +1,5 @@
 #include <stdatomic.h>
+#include <time.h>
 
 struct rw_params {
     int fd;
@@ -42,7 +43,7 @@ static inline __uint64_t srandom_u64(const __uint64_t seed) {
 // ret > 0 if t1 greater than t2, t1 is behind t2
 // ret == 0 if t1 equals to t2, t1 is exactly same as t2
 // ref < 0 if t1 smaller than t2, t1 is ahead t2
-static inline int8_t timespec_cmp(struct timespec *t1, struct timespec *t2) {
+static inline int timespec_cmp(struct timespec *t1, struct timespec *t2) {
     if (t1->tv_sec > t2->tv_sec) {
         return 1;
     }
@@ -57,3 +58,5 @@ static inline int8_t timespec_cmp(struct timespec *t1, struct timespec *t2) {
     }
     return 0;
 }
+
+void io_report(struct rw_params *param);

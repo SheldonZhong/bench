@@ -163,19 +163,7 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_MONOTONIC, &stop);
     io_uring_queue_exit(&ring);
 
-    double dt = (double)(job_args.stop->tv_sec - job_args.start->tv_sec) +
-                (double)(job_args.stop->tv_nsec -  job_args.start->tv_nsec) / 1000000000.0;
-    if (job_args.read_io > 0) {
-        printf("READ:\n\tread_io: %d\n\ttime: %.3f seconds\n", job_args.read_io, dt);
-        double iops = (double)job_args.read_io / dt;
-        printf("\tIOPS: %.3f\n\tbandwidth: %.3f MiB/s\n", iops, iops * (double)block_size / (1024.0 * 1024.0));
-    }
-
-    if (job_args.write_io> 0) {
-        printf("WRITE:\n\twrite_io: %d\n\ttime: %.3f seconds\n", job_args.write_io, dt);
-        double iops = (double)job_args.write_io / dt;
-        printf("\tIOPS: %.3f\n\tbandwidth: %.3f MiB/s\n", iops, iops * (double)block_size / (1024.0 * 1024.0));
-    }
+    io_report(&job_args);
 
     return 0;
 }

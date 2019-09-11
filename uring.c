@@ -148,14 +148,13 @@ int main(int argc, char *argv[]) {
     };
     struct io_uring ring;
     ret = io_uring_queue_init(CAP, &ring, 0);
-
-    io_uring_register_buffers(&ring, &iovecs, 1);
-    clock_gettime(CLOCK_MONOTONIC, &now);
-
     if (ret < 0) {
         fprintf(stderr, "io_uring_queue_init: %s\n", strerror(-ret));
         return -1;
     }
+
+    io_uring_register_buffers(&ring, &iovecs, 1);
+    clock_gettime(CLOCK_MONOTONIC, &now);
 
     rw_worker(&ring, &job_args);
     wait(&ring, 0, block_size);

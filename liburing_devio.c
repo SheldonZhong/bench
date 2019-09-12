@@ -22,17 +22,17 @@ static inline int wait(struct io_uring *ring, uint64_t cap, uint64_t bs) {
             return 1;
         } 
 
-        if (cqe->res != bs) {
+        if (cqe->res < 0 || cqe->res != (int64_t)bs) {
 			fprintf(stderr, "ret=%s, wanted %ld\n", strerror(-cqe->res), bs);
 		}
 
         io_uring_cqe_seen(ring, cqe);
         inflight--;
     }
+    return 0;
 }
 
 static inline int uring_write(struct io_uring *ring, int fd, void *buf, uint64_t bs, uint64_t off) {
-    struct io_uring_cqe *cqe;
     struct io_uring_sqe *sqe;
     int ret;
 
@@ -47,11 +47,10 @@ static inline int uring_write(struct io_uring *ring, int fd, void *buf, uint64_t
 
     wait(ring, CAP, bs);
 
-    return 0;
+    return ret;
 }
 
 static inline int uring_read(struct io_uring *ring, int fd, void *buf, uint64_t bs, uint64_t off) {
-    struct io_uring_cqe *cqe;
     struct io_uring_sqe *sqe;
     int ret;
 
@@ -66,7 +65,7 @@ static inline int uring_read(struct io_uring *ring, int fd, void *buf, uint64_t 
 
     wait(ring, CAP, bs);
 
-    return 0;
+    return ret;
 }
 
 void *rw_worker(struct io_uring *ring, void *args) {
@@ -85,11 +84,19 @@ void *rw_worker(struct io_uring *ring, void *args) {
     while(1) {
         for (int i = 0; i < GRANUNITY; i++) {
             offset = (random_u64() % param->size) & mask;
-            if (param->read_percent > (random_u64() % 100)) {
-                uring_read(ring, param->fd, param->buf, param->block_size, offset);
+            if (param->read_percent > ((int)random_u64() % 100)) {
+                ret = uring_read(ring, param->fd, param->buf, param->block_size, offset);
+                if (ret < 0) {
+                    fprintf(stderr, "read error %d\n", ret);
+                    exit(1);
+                }
                 reads++;
             } else {
-                uring_write(ring, param->fd, param->buf, param->block_size, offset);
+                ret = uring_write(ring, param->fd, param->buf, param->block_size, offset);
+                if (ret < 0) {
+                    fprintf(stderr, "read error %d\n", ret);
+                    exit(1);
+                }
                 writes++;
             }
         }
@@ -121,7 +128,6 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    const int nthreads = atoi(argv[1]);
     const int read_percent = atoi(argv[2]);
     const int block_size = 1 << atoi(argv[3]);
     const int duration = atoi(argv[4]);

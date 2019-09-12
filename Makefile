@@ -1,22 +1,21 @@
-.PHONY: liburing update
+CFLAGS += -Wall -Wextra
+LDLIBS += -lpthread
 
-objs = common.o
-flags = -lpthread -luring -L./liburing/src/ -I./liburing/src/include/
+uring = -luring -L./liburing/src/ -I./liburing/src/include/
 
-devio : devio.c $(objs)
-	cc -o devio.o devio.c $(objs) $(flags)
+all: update devio liburing_devio
 
-uring : uring.c liburing $(objs)
-	cc -o uring.o uring.c $(objs) $(flags)
+devio: devio.o common.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-liburing : update
-	cd ./liburing/src && $(MAKE)
-
-common.o : common.h common.c
-	cc -c common.c
+liburing_devio: liburing_devio.c common.o
+	$(CC) $(CFLAGS) -o $@ $^ $(uring)
 
 update :
 	git submodule init && git submodule update
+	cd ./liburing/src && $(MAKE)
 
 clean :
-	rm *.o
+	$(RM) devio liburing_devio *.o
+
+.PHONY: liburing update clean all

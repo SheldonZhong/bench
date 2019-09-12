@@ -23,7 +23,7 @@ void *rw_worker(void *args) {
     while(1) {
         for (int i = 0; i < GRANUNITY; i++) {
             offset = (random_u64() % param->size) & mask;
-            if (param->read_percent > (random_u64() % 100)) {
+            if (param->read_percent > ((int)random_u64() % 100)) {
                 ret = pread(param->fd, param->buf, param->block_size, offset);
                 if (ret <= 0) {
                     fprintf(stderr, "read error %d\n", ret);

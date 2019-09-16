@@ -1,6 +1,6 @@
-#include "common.h"
 #include <time.h>
 #include <stdio.h>
+#include "common.h"
 
 void io_report(struct rw_params *param) {
     double dt = (double)(param->stop->tv_sec - param->start->tv_sec) +
